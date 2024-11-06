@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat with Local API</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <style>
+        /* Style for the loading icon on the button */
+        .loading-icon {
+            display: none; /* Hidden by default */
+            width: 20px;
+            height: 20px;
+            vertical-align: middle;
+        }
+    </style>
+    <script>
+        async function sendPrompt() {
+            const promptInput = document.getElementById("prompt");
+            const chatContainer = document.getElementById("chat-container");
+            const sendButton = document.querySelector("button");
+            const loadingIcon = document.getElementById("loading-icon");
+            const promptText = promptInput.value.trim();
+
+            if (!promptText) {
+                alert("Please enter a prompt.");
+                return;
+            }
+
+            // Clear input
+            promptInput.value = "";
+
+            // Display user prompt in chat
+            addMessage("You: " + promptText, "user-message");
+
+            // Show loading icon on button
+            loadingIcon.style.display = "inline-block";
+            sendButton.disabled = true; // Disable the button to prevent multiple requests
+
+            try {
+                // Make API call
+                const response = await fetch("/chat", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ prompt: promptText })
+                });
+
+                const data = await response.json();
+
+                // Hide loading icon and enable the button
+                loadingIcon.style.display = "none";
+                sendButton.disabled = false;
+
+                // Display response
+                addMessage("Response: " + data.response, "api-response");
+                if (data.sources && data.sources.length > 0) {
+                    addMessage("Sources:", "api-response");
+                    data.sources.forEach((source, index) => {
+                        addMessage(
+                            `<a href="${source}" target="_blank">Source ${index + 1}</a>`,
+                            "source-link"
+                        );
+                    });
+                }
+            } catch (error) {
+                // Hide loading icon and enable the button
+                loadingIcon.style.display = "none";
+                sendButton.disabled = false;
+
+                addMessage("Error: Unable to fetch response.", "error-message");
+            }
+        }
+
+        function addMessage(text, className) {
+            const chatContainer = document.getElementById("chat-container");
+            const messageDiv = document.createElement("div");
+            messageDiv.className = className;
+            messageDiv.innerHTML = text;
+            chatContainer.appendChild(messageDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        // Add Enter key event listener
+        document.addEventListener("DOMContentLoaded", () => {
+            const promptInput = document.getElementById("prompt");
+            promptInput.addEventListener("keydown", (event) => {
+                if (event.key === "Enter") {
+                    sendPrompt();
+                }
+            });
+        });
+    </script>
+</head>
+<body style="background: url('{{ url_for('static', filename='fond.webp') }}') no-repeat center center; background-size: cover;">
+    <div class="background-overlay"></div>
+    <div class="chat-wrapper">
+        <br>
+        <img src="{{ url_for('static', filename='logo.png') }}" class="logo-image" alt="Logo">
+        <div id="chat-container" class="chat-container"></div>
+        <div class="input-container">
+            <input type="text" id="prompt" placeholder="Enter your prompt...">
+            <button onclick="sendPrompt()">
+                Send
+                <img id="loading-icon" src="{{ url_for('static', filename='Loading_icon.gif') }}" class="loading-icon" alt="Loading">
+            </button>
+        </div>
+    </div>
+</body>
+</html>
