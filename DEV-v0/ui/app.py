@@ -108,12 +108,12 @@ st.markdown(custom_css, unsafe_allow_html=True)
 # Define buttons with native emoji icons
 st.markdown("""
     <div class="button-container expanded" id="button-container">
-        <a href="http://localhost:8888" alt="Files" class="stButton" onclick="window.open('http://localhost:8888', '_blank')">
+        <a href="http://localhost:8888/ui/file_manager" alt="Logs" class="stButton">
+            📤
+        </a>
+        <a href="http://localhost:8888" alt="Files" class="stButton">
             📝
         </a>
-        <button alt="Logs" class="stButton" onclick="window.open('http://localhost:5555', '_blank')">
-            📜
-        </button>
         <button alt="Administration" class="stButton" onclick="window.open('http://localhost:5555', '_blank')">
             ⚙️
         </button>
@@ -271,7 +271,8 @@ def chat_interface(vector_store):
         combined_context = " ---SEPARATE SOURCE--".join([ctx["content"] for ctx in contexts])
         response = generate_llm_response(
             #f"Respond to this Question: '{prompt}' given this \n\nContext: '{combined_context}'. \n\nNote: If no context, don't give extra explanation. You only answer based on given context except for general greeting."
-            f"Context: {combined_context}\n\nQuestion: {prompt}"
+            #f"Context: {combined_context}\n\nQuestion: {prompt}"
+            f"Context: {combined_context}\n\nQuestion: {prompt}\n\nNote: Add '\n\n' to separate section if it is hierarchical."
         )
 
         # Display assistant response
