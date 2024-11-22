@@ -1,0 +1,7 @@
+streamlit
+torch
+chromadb
+transformers
+langchain-community
+ollama
+flask
