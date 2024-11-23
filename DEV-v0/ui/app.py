@@ -2,6 +2,19 @@
 # UTILS
 # ---------------------------------------------------------------
 import streamlit as st
+
+st.set_page_config(
+    page_title='RPGChat',
+    page_icon='🧊',
+    # layout='wide',
+    initial_sidebar_state='collapsed',
+    # menu_items={
+    #     'Get Help': 'https://www.extremelycoolapp.com/help',
+    #     'Report a bug': "https://www.extremelycoolapp.com/bug",
+    #     'About': "# This is a header. This is an *extremely* cool app!"
+    # }
+)
+
 import random, os
 import time
 import torch
@@ -43,7 +56,6 @@ custom_css = f"""
 </style>
 """
 st.markdown(custom_css, unsafe_allow_html=True)
-
 
 #beta
 custom_css = """
@@ -119,6 +131,44 @@ st.markdown("""
         </button>
     </div>
 """, unsafe_allow_html=True)
+
+# ---------------------------------------------------------------
+# MENU options
+# ---------------------------------------------------------------
+st.sidebar.markdown("### Select Base LLM Model")
+if "selected_llm" not in st.session_state:
+    st.session_state.selected_llm = "Llama3"
+
+st.session_state.selected_llm = st.sidebar.selectbox(
+    "Choose an LLM model:",
+    options=["Llama3", "Llama2", "Phi3", "gemma"],
+    index=["Llama3", "Llama2", "Phi3", "gemma"].index(st.session_state.selected_llm)
+)
+
+if "k" not in st.session_state:
+    st.session_state.k = 2
+st.sidebar.markdown("### Adjust Number of Sources")
+st.session_state.k = st.sidebar.slider(
+    "Number of Sources",
+    min_value=1,
+    max_value=10,
+    value=st.session_state.k,
+    step=1
+)
+
+st.sidebar.markdown("### Other options")
+if "activate_memory" not in st.session_state:
+    st.session_state.activate_memory = False
+st.session_state.activate_memory = st.sidebar.checkbox(
+    "Activate memory between prompts",
+    value=st.session_state.activate_memory
+)
+if "include_images" not in st.session_state:
+    st.session_state.include_images = False
+st.session_state.include_images = st.sidebar.checkbox(
+    "Include images in analysis",
+    value=st.session_state.include_images
+)
 
 # ---------------------------------------------------------------
 # FUNCTIONS
@@ -221,7 +271,7 @@ def generate_llm_response(prompt):
     Make a request to the LLM for generating a response.
     """
     try:
-        response = ollama.generate(model="phi3", prompt=prompt)
+        response = ollama.generate(model=st.session_state.selected_llm.lower(), prompt=prompt)
         return response.get("response", "No response received from LLM.")
     except Exception as e:
         return f"Error during LLM response generation: {e}"
@@ -230,9 +280,21 @@ def response_generator(response):
     """
     Simulate streaming of a response, word by word.
     """
-    for word in response.split():
-        yield word + " "
-        time.sleep(0.09)
+    #for word in response.split():
+    #    yield word + " "
+    #    time.sleep(0.09)
+    return response
+
+def response_generator_streaming(response):
+    """
+    Simulate dynamic streaming of a response, typing character by character.
+    """
+    stream = ""
+    for char in response:
+        stream += char
+        yield stream 
+        time.sleep(0.01)
+
 
 def chat_interface(vector_store):
     """
@@ -266,36 +328,37 @@ def chat_interface(vector_store):
             st.markdown(prompt)
 
         # Retrieve context and generate response
-        contexts = retrieve_context(vector_store, prompt)
+        contexts = retrieve_context(vector_store, prompt, k=st.session_state.k)
         print(contexts)
-        combined_context = " ---SEPARATE SOURCE--".join([ctx["content"] for ctx in contexts])
+        combined_context = "Ctx: "
+        combined_context += " Ctx: ".join([ctx["content"] for ctx in contexts])
         response = generate_llm_response(
-            #f"Respond to this Question: '{prompt}' given this \n\nContext: '{combined_context}'. \n\nNote: If no context, don't give extra explanation. You only answer based on given context except for general greeting."
-            #f"Context: {combined_context}\n\nQuestion: {prompt}"
             f"Context: {combined_context}\n\nQuestion: {prompt}\n\nNote: Add '\n\n' to separate section if it is hierarchical."
         )
 
         # Display assistant response
         print('> write ...')
-        #with st.chat_message("assistant"):
-        #    for chunk in response_generator(response):
-        #        st.markdown(chunk)
-        #response = response_generator(response)
+        formatted_sources = "\n".join([f"- {source}" for source in format_sources(contexts)])
+        response_with_source =  response + "\n#### Sources\n" + formatted_sources
         with st.chat_message("assistant"):
-            response_ = st.write_stream(response_generator(response))
-        #    response_ = st.write(response_generator(response))
-        #    for chunk in response_generator(response):
-        #        st.markdown(chunk)
-        #    response = st.write(response_generator(response))
-        #with st.chat_message("assistant"):
-        #    for word in response_generator(response):
-        #        st.write(word)
-
-        # Display sources
-        display_sources(contexts)
-
+            response_container = st.empty()
+            dynamic_response = response_generator_streaming(response_with_source)
+            for partial_text in dynamic_response:
+                response_container.markdown(partial_text)
+                
         # Add assistant response to chat history
-        st.session_state.messages.append({"role": "assistant", "content": response_})
+        st.session_state.messages.append({"role": "assistant", "content": response_with_source})
+
+
+        #formatted_sources = "\n".join([f"- {source}" for source in format_sources(contexts)])
+        #response_with_source =  response + "\n#### Sources\n" + formatted_sources
+        #with st.chat_message("assistant"):
+        #    response_ = st.write_stream(response_generator(response))
+        #    st.markdown(response_generator(response_with_source))
+        ## Display sources
+        ##display_sources(contexts)
+        ## Add assistant response to chat history
+        #st.session_state.messages.append({"role": "assistant", "content": response_with_source})
 
 # ---------------------------------------------------------------
 # MAIN APP
